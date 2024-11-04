@@ -19,7 +19,7 @@ import { readdirAsync } from './fsWrap/readdirAsync';
 type Counter = {
   total: number;
   current: number;
-  inProgress: Promise<MoveResult>[];
+  tasks: Promise<MoveResult>[];
 };
 
 const formatCount = (counter: Counter) => {
@@ -33,7 +33,7 @@ const formatCount = (counter: Counter) => {
  */
 export const arrangeFiles = async (
   path: string,
-  counter: Counter = { total: 0, current: 0, inProgress: [] }
+  counter: Counter = { total: 0, current: 0, tasks: [] }
 ) => {
   const files = fs.readdirSync(path);
 
@@ -69,9 +69,9 @@ export const arrangeFiles = async (
         const isDirectory = fs.lstatSync(fullPath).isDirectory();
         if (isDirectory) {
           if (IS_DEBUG_MODE) {
-            console.log(`RECURSING ${fullPath}`);
+            console.log(`RECURSING "${fullPath}"`);
           }
-          const arrangedFiles = await arrangeFiles(fullPath);
+          const arrangedFiles = await arrangeFiles(fullPath, counter);
           if (arrangedFiles.length === 0) {
             return [];
           }
@@ -82,56 +82,53 @@ export const arrangeFiles = async (
           if (restFiles.length === 0) {
             await rmAsync(fullPath, { recursive: true, force: true });
             if (IS_DEBUG_MODE) {
-              console.log(`REMOVED ${fullPath} BECAUSE IT'S EMPTY`);
+              console.log(`REMOVED "${fullPath}" BECAUSE IT'S EMPTY`);
             }
           }
 
           return arrangedFiles;
         }
 
-        // 画像パターンにマッチする場合は整理
-        if (IMAGE_FILE_REGEX.test(file)) {
+        const createTask = async (
+          moveFile: (path: string, file: string) => Promise<MoveResult>
+        ) => {
           counter.total++;
-          while (counter.inProgress.length >= MAX_PARALLEL) {
+
+          await Promise.resolve();
+          while (counter.tasks.length >= MAX_PARALLEL) {
             if (IS_DEBUG_MODE) {
-              console.log(`WAITING FOR ${counter.inProgress.length} TASKS`);
+              console.log(`WAITING: "${fullPath}"`);
             }
-            await Promise.race(counter.inProgress);
+            await Promise.race(counter.tasks);
           }
           counter.current++;
           console.log(`${formatCount(counter)} ${fullPath}`);
-          const task = arrangeImage(path, file);
-          counter.inProgress.push(task);
+          const task = moveFile(path, file);
+          counter.tasks.push(task);
 
           const result = await task;
-          counter.inProgress = counter.inProgress.filter((p) => p !== task);
+          counter.tasks = counter.tasks.filter((t) => t !== task);
 
           return [result];
+        };
+
+        // 画像パターンにマッチする場合は整理
+        if (IMAGE_FILE_REGEX.test(file)) {
+          return createTask(arrangeImage);
         }
 
         // 動画パターンにマッチする場合は整理
         if (MOVIE_FILE_REGEX.test(file)) {
-          counter.total++;
-          while (counter.inProgress.length >= MAX_PARALLEL) {
-            await Promise.race(counter.inProgress);
-          }
-          counter.current++;
-          console.log(`${formatCount(counter)} ${fullPath}`);
-          const task = arrangeMovie(path, file);
-          counter.inProgress.push(task);
-
-          const result = await task;
-          counter.inProgress = counter.inProgress.filter((p) => p !== task);
-          return [result];
+          return createTask(arrangeMovie);
         }
 
         // それ以外のファイルはスキップ
         if (IS_DEBUG_MODE) {
-          console.log(`SKIPPING ${fullPath} BECAUSE IT'S NOT MATCHED`);
+          console.log(`SKIPPING "${fullPath}" BECAUSE IT'S NOT MATCHED`);
         }
         return [];
       } catch (e) {
-        console.error(`FAILED TO ARRANGE ${fullPath}`);
+        console.error(`FAILED TO ARRANGE "${fullPath}"`);
         console.error(e);
         // throw e;
       }

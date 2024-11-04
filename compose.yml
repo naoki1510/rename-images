@@ -10,13 +10,14 @@ services:
       - SOURCE_DIR=/workspace/source
       - TARGET_FILENAME
       - DEBUG
+      - MODE
     volumes:
       - type: bind
         source: ${TARGET_DIR}
-        target: /workspace/target
+        target: /workspace/target/
       - type: bind
         source: ${SOURCE_DIR}
-        target: /workspace/source
+        target: /workspace/source/
       - type: bind
         source: ./
         target: /app

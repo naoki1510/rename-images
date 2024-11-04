@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { MODE } from '../../constants';
 
 export type MoveResult = {
   origin: string;
@@ -13,25 +14,29 @@ export async function moveAsync(origin: string, target: string) {
       resolve({ origin, target, status: 'SKIPPED' });
     }
     console.log(`MOVE: ${origin} -> ${target}`);
-    fs.rename(origin, target, (err) => {
-      if (err) {
-        fs.copyFile(origin, target, (err) => {
-          if (err) {
-            reject(err);
-          }
-          console.log(`  COPY: ${origin} -> ${target}`);
-          fs.rm(origin, (err) => {
+    if (MODE === 'move') {
+      fs.rename(origin, target, (err) => {
+        if (err) {
+          fs.copyFile(origin, target, (err) => {
             if (err) {
               reject(err);
             }
-            console.log(`  REMOVE: ${origin}`);
-            resolve({ origin, target, status: 'MOVED' });
+            console.log(`  COPY: ${origin} -> ${target}`);
+            fs.rm(origin, (err) => {
+              if (err) {
+                reject(err);
+              }
+              console.log(`  REMOVE: ${origin}`);
+              resolve({ origin, target, status: 'MOVED' });
+            });
           });
-        });
-      } else {
-        console.log(`  RENAME: ${origin} -> ${target}`);
-        resolve({ origin, target, status: 'RENAMED' });
-      }
-    });
+        } else {
+          console.log(`  RENAME: ${origin} -> ${target}`);
+          resolve({ origin, target, status: 'RENAMED' });
+        }
+      });
+    } else {
+      resolve({ origin, target, status: 'SKIPPED' });
+    }
   });
 }

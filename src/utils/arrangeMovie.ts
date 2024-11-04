@@ -12,9 +12,7 @@ import { XMLParser } from 'fast-xml-parser';
  * @returns 移動元と移動先のファイルパス
  */
 export const arrangeMovie = async (dirPath: string, file: string) => {
-  const { date, model } = await getVideoMeta(
-    `${dirPath}/${file}`
-  );
+  const { date, model } = await getVideoMeta(`${dirPath}/${file}`);
 
   const targetDirPath = getTargetDir({
     date,
@@ -31,11 +29,12 @@ function getVideoMeta(filePath: string) {
       const xml = fs.readFileSync(xmlPath, {
         encoding: 'utf-8',
       });
-      const parser = new XMLParser();
+      const parser = new XMLParser({ ignoreAttributes: false });
       const parsedXml = parser.parse(xml) as object;
       console.log(parsedXml);
       // TODO: XMLから撮影日時とモデル名を取得する
-      process.exit(0);
+      console.log('Todo: XMLから撮影日時とモデル名を取得する');
+      process.exit(1);
     } else {
       ffmpeg.ffprobe(filePath, (err, metadata) => {
         if (err) {
