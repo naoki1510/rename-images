@@ -1,0 +1,26 @@
+services:
+  app:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /app
+    user: "${UID}:${GID}"
+    environment:
+      - TARGET_FILENAME
+      - MOVIE_MODEL
+    volumes:
+      - 
+        type: bind
+        source: ${TARGET_DIR}
+        target: /workspace/target
+      -
+        type: bind
+        source: ${SOURCE_DIR}
+        target: /workspace/source
+      -
+        type: bind
+        source: ./
+        target: /app
+    command: npm start
+    tty: true          #-t ttyを割り当てます。
+    stdin_open: true   #-i STDINを開きます。
