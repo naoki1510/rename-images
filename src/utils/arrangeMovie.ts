@@ -1,9 +1,9 @@
-import ffmpeg from "fluent-ffmpeg";
-import fs from "fs";
-import { getTargetDir } from "./getTargetDir";
-import { moveFile } from "./moveFile";
-import { XML_SUFFIX } from "../constants";
-import { XMLParser } from "fast-xml-parser";
+import ffmpeg from 'fluent-ffmpeg';
+import fs from 'fs';
+import { getTargetDir } from './getTargetDir';
+import { moveFile } from './moveFile';
+import { XML_SUFFIX } from '../constants';
+import { XMLParser } from 'fast-xml-parser';
 
 /**
  * 画像ファイルを整理する
@@ -12,7 +12,7 @@ import { XMLParser } from "fast-xml-parser";
  * @returns 移動元と移動先のファイルパス
  */
 export const arrangeMovie = async (dirPath: string, file: string) => {
-  const { date, model = process.env.MOVIE_MODEL } = await getVideoMeta(
+  const { date, model } = await getVideoMeta(
     `${dirPath}/${file}`
   );
 
@@ -29,13 +29,18 @@ function getVideoMeta(filePath: string) {
     const xmlPath = filePath.replace(/\..*$/, XML_SUFFIX);
     if (fs.existsSync(xmlPath) === true) {
       const xml = fs.readFileSync(xmlPath, {
-        encoding: "utf-8",
+        encoding: 'utf-8',
       });
-      XMLParser.
+      const parser = new XMLParser();
+      const parsedXml = parser.parse(xml) as object;
+      console.log(parsedXml);
+      // TODO: XMLから撮影日時とモデル名を取得する
+      process.exit(0);
     } else {
       ffmpeg.ffprobe(filePath, (err, metadata) => {
         if (err) {
-          reject(err);
+          console.error(err);
+          reject(new Error('動画のメタデータが取得できませんでした'));
         } else {
           // creation_timeが含まれているか確認
           const creationTime = metadata.format.tags
@@ -45,11 +50,11 @@ function getVideoMeta(filePath: string) {
           if (creationTime) {
             // 日本時間に変換
             const date = new Date(
-              Number(new Date(creationTime || "")) + 9 * 60 * 60 * 1000
+              Number(new Date(creationTime || '')) + 9 * 60 * 60 * 1000
             );
             resolve({ date });
           } else {
-            reject(new Error("撮影日が取得できませんでした"));
+            reject(new Error('撮影日が取得できませんでした'));
           }
         }
       });

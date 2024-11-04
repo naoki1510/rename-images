@@ -1,35 +1,31 @@
-import fs from "fs";
+import fs from 'fs';
 
-import { TARGET_PATH } from "../constants";
-import { arrangeImage } from "./arrangeImage";
-import { arrangeMovie } from "./arrangeMovie";
+import {
+  DELETING_FILE_REGEX,
+  IGNORABLE_FILE_REGEX,
+  IMAGE_FILE_REGEX,
+  IS_DEBUG_MODE,
+  MAX_PARALLEL,
+  MOVIE_FILE_REGEX,
+  SKIPPING_DIR_REGEX,
+  SKIPPING_FILE_REGEX,
+} from '../constants';
+import { arrangeImage } from './arrangeImage';
+import { arrangeMovie } from './arrangeMovie';
+import { rmAsync } from './fsWrap/rmAsync';
+import { MoveResult } from './fsWrap/moveAsync';
+import { readdirAsync } from './fsWrap/readdirAsync';
 
-const lstat = (path: string) => {
-  return new Promise<fs.Stats>((resolve, reject) => {
-    fs.lstat(path, (err, stats) => {
-      if (err) {
-        reject(err);
-      }
-      resolve(stats);
-    });
-  });
+type Counter = {
+  total: number;
+  current: number;
+  inProgress: Promise<MoveResult>[];
 };
 
-const readdir = (path: string) => {
-  return new Promise<string[]>((resolve, reject) => {
-    fs.readdir(path, (err, files) => {
-      if (err) {
-        reject(err);
-      }
-      resolve(files);
-    });
-  });
+const formatCount = (counter: Counter) => {
+  const digits = counter.total.toString().length;
+  return `[${counter.current.toString().padStart(digits, '0')}/${counter.total}]`;
 };
-
-let totalCount = 0;
-const totalCountDigits = () => String(totalCount).length;
-const padCount = (count: number) =>
-  count.toString().padStart(totalCountDigits(), "0");
 
 /**
  * ファイルを整理する
@@ -37,118 +33,112 @@ const padCount = (count: number) =>
  */
 export const arrangeFiles = async (
   path: string,
-  pattern: {
-    picture: RegExp;
-    movie: RegExp;
-  },
-  options?: {
-    showSkipped?: boolean;
-  }
+  counter: Counter = { total: 0, current: 0, inProgress: [] }
 ) => {
-  const { showSkipped = true } = options || {};
-  const files = await readdir(path);
+  const files = fs.readdirSync(path);
 
-  return files.reduce(async (completedCount, file): Promise<number> => {
-    const fullPath = `${path}/${file}`;
-    try {
-      // 削除対象のファイル
-      // if (file.match(/^(.*\.(modd|moff|xmp|json|\w* \(1\))|\._.*)$/i)) {
-      //   fs.rmSync(fullPath, { recursive: true, force: true });
-      //   console.log(`${fullPath} WAS DELETED BECAUSE IT'S MARKED AS DELETING`);
-      //   return;
-      // }
-
-      // スキップ対象
-      if (
-        file.match(/^(?:@eaDir|\._.*|\.DS_Store)$/i) ||
-        fullPath.match(
-          new RegExp(
-            `^${TARGET_PATH}/(movies|mobileBackup|unknown|\\d{4}/\\d{2}/\\d{2})`,
-            "i"
-          )
-        )
-      ) {
-        showSkipped &&
-          console.log(`SKIPPING ${fullPath} BECAUSE IT'S MARKED AS SKIPPING`);
-        return await completedCount;
+  const results = await Promise.all(
+    files.map(async (file): Promise<MoveResult[]> => {
+      const fullPath = `${path}/${file}`;
+      if (IS_DEBUG_MODE) {
+        console.log(`CHECKING ${path}, ${file}`);
       }
 
-      const stat = fs.lstatSync(fullPath);
-      const isDirectory = stat.isDirectory();
-
-      // ディレクトリの場合は再帰的に処理
-      if (isDirectory) {
-        console.log(`LOOKING INTO ${fullPath}`);
-        const movedFileCount = await arrangeFiles(fullPath, pattern, options);
-        const count = await completedCount;
-        if (movedFileCount === 0) {
-          return count;
+      try {
+        // 削除
+        if (DELETING_FILE_REGEX.test(file)) {
+          await rmAsync(fullPath);
+          if (IS_DEBUG_MODE) {
+            console.log(`REMOVED ${fullPath} BECAUSE IT'S MARKED AS DELETING`);
+          }
+          return [];
         }
-        const validFiles = fs
-          .readdirSync(fullPath)
-          .filter(
-            (f) =>
-              !f.match(
-                /(?:@eaDir|\.DS_Store|\._.*|(DATABASE|STATUS)\.BIN|Thumbs.db)/i
-              )
+
+        // スキップ対象
+        if (
+          SKIPPING_FILE_REGEX.test(file) ||
+          SKIPPING_DIR_REGEX.test(fullPath)
+        ) {
+          if (IS_DEBUG_MODE) {
+            console.log(`SKIPPING ${fullPath} BECAUSE IT'S MARKED AS SKIPPING`);
+          }
+          return [];
+        }
+
+        // ディレクトリの場合は再帰的に処理
+        const isDirectory = fs.lstatSync(fullPath).isDirectory();
+        if (isDirectory) {
+          if (IS_DEBUG_MODE) {
+            console.log(`RECURSING ${fullPath}`);
+          }
+          const arrangedFiles = await arrangeFiles(fullPath);
+          if (arrangedFiles.length === 0) {
+            return [];
+          }
+          // フォルダ内のファイルが全て移動された場合はフォルダを削除
+          const restFiles = await readdirAsync(fullPath).then((files) =>
+            files.filter((file) => !IGNORABLE_FILE_REGEX.test(file))
           );
-        if (validFiles.length === 0) {
-          fs.rmSync(fullPath, { recursive: true, force: true });
-          console.log(`${fullPath} WAS DELETED BECAUSE IT'S EMPTY`);
+          if (restFiles.length === 0) {
+            await rmAsync(fullPath, { recursive: true, force: true });
+            if (IS_DEBUG_MODE) {
+              console.log(`REMOVED ${fullPath} BECAUSE IT'S EMPTY`);
+            }
+          }
+
+          return arrangedFiles;
         }
-        return count + movedFileCount;
+
+        // 画像パターンにマッチする場合は整理
+        if (IMAGE_FILE_REGEX.test(file)) {
+          counter.total++;
+          while (counter.inProgress.length >= MAX_PARALLEL) {
+            if (IS_DEBUG_MODE) {
+              console.log(`WAITING FOR ${counter.inProgress.length} TASKS`);
+            }
+            await Promise.race(counter.inProgress);
+          }
+          counter.current++;
+          console.log(`${formatCount(counter)} ${fullPath}`);
+          const task = arrangeImage(path, file);
+          counter.inProgress.push(task);
+
+          const result = await task;
+          counter.inProgress = counter.inProgress.filter((p) => p !== task);
+
+          return [result];
+        }
+
+        // 動画パターンにマッチする場合は整理
+        if (MOVIE_FILE_REGEX.test(file)) {
+          counter.total++;
+          while (counter.inProgress.length >= MAX_PARALLEL) {
+            await Promise.race(counter.inProgress);
+          }
+          counter.current++;
+          console.log(`${formatCount(counter)} ${fullPath}`);
+          const task = arrangeMovie(path, file);
+          counter.inProgress.push(task);
+
+          const result = await task;
+          counter.inProgress = counter.inProgress.filter((p) => p !== task);
+          return [result];
+        }
+
+        // それ以外のファイルはスキップ
+        if (IS_DEBUG_MODE) {
+          console.log(`SKIPPING ${fullPath} BECAUSE IT'S NOT MATCHED`);
+        }
+        return [];
+      } catch (e) {
+        console.error(`FAILED TO ARRANGE ${fullPath}`);
+        console.error(e);
+        // throw e;
       }
 
-      // 画像パターンにマッチする場合は整理
-      if (file.match(pattern.picture)) {
-        totalCount++;
-        const count = await completedCount;
-        console.log(
-          `[${padCount(count + 1)}/${padCount(totalCount)}] ${fullPath}`
-        );
+      return [];
+    })
+  );
 
-        const result = arrangeImage(path, file);
-        if (!result) {
-          console.log(`FAILED TO ARRANGE ${fullPath}`);
-          return count;
-        }
-        const { origin, target } = await result;
-        if (origin === target) {
-          return count;
-        }
-        return count + 1;
-      }
-
-      // 動画パターンにマッチする場合は整理
-      if (file.match(pattern.movie)) {
-        totalCount++;
-        const count = await completedCount;
-        console.log(
-          `[${padCount(count + 1)}/${padCount(totalCount)}] ${fullPath}`
-        );
-
-        const result = arrangeMovie(path, file);
-        if (!result) {
-          console.log(`FAILED TO ARRANGE ${fullPath}`);
-          return count;
-        }
-        const { origin, target } = await result;
-        if (origin === target) {
-          return count;
-        }
-        return count + 1;
-      }
-
-      // それ以外のファイルはスキップ
-      showSkipped &&
-        console.log(`SKIPPING ${fullPath} BECAUSE IT'S NOT A TARGET FILE`);
-      return await completedCount;
-    } catch (e) {
-      console.error(`FAILED TO ARRANGE ${fullPath}`);
-      console.error(e);
-      // throw e;
-    }
-
-    return await completedCount;
-  }, new Promise<number>((resolve) => setTimeout(() => resolve(0), 1)));
+  return results.flat();
 };

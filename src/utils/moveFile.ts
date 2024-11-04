@@ -1,4 +1,6 @@
-import fs from "fs";
+import fs from 'fs';
+import { moveAsync } from './fsWrap/moveAsync';
+import { XML_SUFFIX } from '../constants';
 
 /**
  * ファイルを移動する
@@ -12,63 +14,41 @@ export const moveFile = async (
   dirPath: string,
   targetPath: string
 ) => {
-  const { name = file, ext = "" } =
+  const { name = file, ext = '' } =
     file.match(/(?<name>.+)\.(?<ext>.+)$/u)?.groups || {};
   const origin = `${dirPath}/${file}`;
   let target = targetPath
     .replaceAll(/%filename%/gi, name)
     .replaceAll(/%ext%/gi, ext);
 
-  const dir = targetPath.replace(/\/[^/]*$/, "");
+  const dir = targetPath.replace(/\/[^/]*$/, '');
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
 
-  // 移動先が同じ場合は何もしない
-  if (origin === target) {
-    console.log(`SKIPPED: ${origin} -> ${target} (SAME PATH)`);
-    return { origin, target };
+  let i = 1;
+  while (fs.existsSync(`${target}`)) {
+    target = target.replace(/(?<ext>\..*)$/iu, ` (${i})$<ext>`);
+    i++;
+    const { confirm } = await import('@clack/prompts');
+    const res = await confirm({
+      message: `${target} already exists. Would you like to rename it to ${target}?`,
+    });
+    if (!res) {
+      throw new Error('File already exists');
+    }
   }
 
-  if (fs.existsSync(`${target}`)) {
-    let i = 1;
-    do {
-      target = targetPath
-        .replaceAll(/%filename%/gi, `${name} (${i})`)
-        .replaceAll(/%ext%/gi, ext);
-    } while (fs.existsSync(`${target}`));
-  }
-
-  const xmlFile = `${dirPath}/${name}M01.XML`;
+  // XMLファイルが存在する場合は同時に移動 (SONYのカメラで撮影した動画など)
+  const xmlFile = `${dirPath}/${name}${XML_SUFFIX}`;
   if (fs.existsSync(xmlFile)) {
-    await move(xmlFile, target.replace(new RegExp(`\\.${ext}$`), "M01.XML"));
+    await moveAsync(
+      xmlFile,
+      target.replace(new RegExp(`\\.${ext}$`), XML_SUFFIX)
+    );
   }
 
-  return move(origin, target).then((result) => {
+  return moveAsync(origin, target).then((result) => {
     return result;
   });
 };
-
-async function move(origin: string, target: string) {
-  return new Promise<{
-    origin: string;
-    target: string;
-  }>((resolve, reject) => {
-    console.log(`MOVING: ${origin} -> ${target}`);
-    fs.rename(origin, target, (err) => {
-      if (err) {
-        fs.copyFile(origin, target, (err) => {
-          if (err) {
-            reject(err);
-          }
-          fs.rmSync(origin);
-          console.log(`MOVED: ${origin} -> ${target}`);
-          resolve({ origin, target });
-        });
-      } else {
-        console.log(`MOVED: ${origin} -> ${target}`);
-        resolve({ origin, target });
-      }
-    });
-  });
-}

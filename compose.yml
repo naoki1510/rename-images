@@ -1,26 +1,25 @@
 services:
   app:
-    build: 
+    build:
       context: .
       dockerfile: Dockerfile
     working_dir: /app
-    user: "${UID}:${GID}"
+    user: '${UID}:${GID}'
     environment:
+      - TARGET_DIR=/workspace/target
+      - SOURCE_DIR=/workspace/source
       - TARGET_FILENAME
-      - MOVIE_MODEL
+      - DEBUG
     volumes:
-      - 
-        type: bind
+      - type: bind
         source: ${TARGET_DIR}
         target: /workspace/target
-      -
-        type: bind
+      - type: bind
         source: ${SOURCE_DIR}
         target: /workspace/source
-      -
-        type: bind
+      - type: bind
         source: ./
         target: /app
     command: npm start
-    tty: true          #-t ttyを割り当てます。
-    stdin_open: true   #-i STDINを開きます。
+    tty: true #-t ttyを割り当てます。
+    stdin_open: true #-i STDINを開きます。
