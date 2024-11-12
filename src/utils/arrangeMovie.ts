@@ -1,8 +1,8 @@
 import ffmpeg from 'fluent-ffmpeg';
 import fs from 'fs';
-import { getTargetDir } from './getTargetDir';
-import { moveFile } from './moveFile';
-import { XML_SUFFIX } from '../constants';
+import { getTargetDir } from './getTargetDir.js';
+import { moveFile } from './moveFile.js';
+import { IS_DEBUG_MODE, XML_SUFFIX } from '../constants.js';
 import { XMLParser } from 'fast-xml-parser';
 
 /**
@@ -30,11 +30,25 @@ function getVideoMeta(filePath: string) {
         encoding: 'utf-8',
       });
       const parser = new XMLParser({ ignoreAttributes: false });
-      const parsedXml = parser.parse(xml) as object;
-      console.log(parsedXml);
-      // TODO: XMLから撮影日時とモデル名を取得する
-      console.log('Todo: XMLから撮影日時とモデル名を取得する');
-      process.exit(1);
+      const parsedXml = parser.parse(xml) as {
+        NonRealTimeMeta: {
+          CreationDate: {
+            '@_value': string;
+          };
+          Device: {
+            '@_modelName': string;
+          };
+        };
+      };
+      if (IS_DEBUG_MODE) {
+        console.log(parsedXml);
+        console.log(parsedXml.NonRealTimeMeta.CreationDate['@_value']);
+        console.log(parsedXml.NonRealTimeMeta.Device['@_modelName']);
+      }
+      const date = new Date(parsedXml.NonRealTimeMeta.CreationDate['@_value']);
+      const model = parsedXml.NonRealTimeMeta.Device['@_modelName'];
+
+      resolve({ date, model });
     } else {
       ffmpeg.ffprobe(filePath, (err, metadata) => {
         if (err) {

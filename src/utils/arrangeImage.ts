@@ -1,6 +1,6 @@
-import { getExif } from './getExif';
-import { getTargetDir } from './getTargetDir';
-import { moveFile } from './moveFile';
+import { getExif } from './getExif.js';
+import { getTargetDir } from './getTargetDir.js';
+import { moveFile } from './moveFile.js';
 
 /**
  * 画像ファイルを整理する

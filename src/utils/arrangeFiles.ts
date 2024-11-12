@@ -9,12 +9,12 @@ import {
   MOVIE_FILE_REGEX,
   SKIPPING_DIR_REGEX,
   SKIPPING_FILE_REGEX,
-} from '../constants';
-import { arrangeImage } from './arrangeImage';
-import { arrangeMovie } from './arrangeMovie';
-import { rmAsync } from './fsWrap/rmAsync';
-import { MoveResult } from './fsWrap/moveAsync';
-import { readdirAsync } from './fsWrap/readdirAsync';
+} from '../constants.js';
+import { arrangeImage } from './arrangeImage.js';
+import { arrangeMovie } from './arrangeMovie.js';
+import { rmAsync } from './fsWrap/rmAsync.js';
+import { MoveResult } from './fsWrap/moveAsync.js';
+import { readdirAsync } from './fsWrap/readdirAsync.js';
 
 type Counter = {
   total: number;
@@ -97,7 +97,7 @@ export const arrangeFiles = async (
           await Promise.resolve();
           while (counter.tasks.length >= MAX_PARALLEL) {
             if (IS_DEBUG_MODE) {
-              console.log(`WAITING: "${fullPath}"`);
+              // console.log(`WAITING: "${fullPath}"`);
             }
             await Promise.race(counter.tasks);
           }

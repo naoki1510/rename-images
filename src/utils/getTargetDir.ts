@@ -1,4 +1,4 @@
-import { TARGET_DIR, TARGET_FILENAME } from '../constants';
+import { TARGET_DIR, TARGET_FILENAME } from '../constants.js';
 
 /**
  * 画像ファイルの移動先ディレクトリを取得する

@@ -1,5 +1,5 @@
-import { SOURCE_DIR } from './constants';
-import { arrangeFiles } from './utils/arrangeFiles';
+import { SOURCE_DIR } from './constants.js';
+import { arrangeFiles } from './utils/arrangeFiles.js';
 
 arrangeFiles(SOURCE_DIR).catch((e) => {
   console.error(e);

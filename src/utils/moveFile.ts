@@ -1,6 +1,6 @@
 import fs from 'fs';
-import { moveAsync } from './fsWrap/moveAsync';
-import { XML_SUFFIX } from '../constants';
+import { moveAsync } from './fsWrap/moveAsync.js';
+import { METADATA_SUFFIX } from '../constants.js';
 
 /**
  * ファイルを移動する
@@ -39,12 +39,23 @@ export const moveFile = async (
     }
   }
 
-  // XMLファイルが存在する場合は同時に移動 (SONYのカメラで撮影した動画など)
-  const xmlFile = `${dirPath}/${name}${XML_SUFFIX}`;
-  if (fs.existsSync(xmlFile)) {
+  // 付随するファイルが存在する場合は同時に移動 (SONYのカメラで撮影した動画、Photoshopで編集した写真など)
+  for (const suffix of METADATA_SUFFIX) {
+    const metadata = `${dirPath}/${name}${suffix}`;
+    if (fs.existsSync(metadata)) {
+      await moveAsync(
+        metadata,
+        target.replace(new RegExp(`\\.${ext}$`), suffix)
+      );
+    }
+  }
+
+  // プロキシファイルが存在する場合は同時に移動
+  const proxyPath = `${dirPath.replace(/CLIP/, '')}/SUB/${name}S03.MP4`;
+  if (fs.existsSync(proxyPath)) {
     await moveAsync(
-      xmlFile,
-      target.replace(new RegExp(`\\.${ext}$`), XML_SUFFIX)
+      proxyPath,
+      target.replace(/\/[^/]*$/, `SUB/${name}S03.MP4`)
     );
   }
 

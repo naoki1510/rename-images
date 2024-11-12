@@ -1,5 +1,5 @@
 import ExifReader from 'exifreader';
-import { readFileAsync } from './fsWrap/readFileAsync';
+import { readFileAsync } from './fsWrap/readFileAsync.js';
 
 /**
  * Exif情報を取得する

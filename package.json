@@ -2,10 +2,10 @@
   "name": "workspace",
   "version": "1.0.0",
   "main": "src/entrypoint.ts",
-  "type": "commonjs",
+  "type": "module",
   "scripts": {
     "test": "npm run lint && npm run format:check",
-    "start": "ts-node src/entrypoint.ts",
+    "start": "node --import ./register.js src/entrypoint.ts",
     "docker": "docker compose run --rm app",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",

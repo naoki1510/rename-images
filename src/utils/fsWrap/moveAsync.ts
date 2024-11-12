@@ -1,5 +1,5 @@
 import fs from 'fs';
-import { MODE } from '../../constants';
+import { MODE } from '../../constants.js';
 
 export type MoveResult = {
   origin: string;
@@ -8,6 +8,7 @@ export type MoveResult = {
 };
 
 export async function moveAsync(origin: string, target: string) {
+  target = target.replaceAll('//', '/');
   return new Promise<MoveResult>((resolve, reject) => {
     if (origin === target) {
       console.log(`SKIP: ${origin} -> ${target} (SAME PATH)`);
