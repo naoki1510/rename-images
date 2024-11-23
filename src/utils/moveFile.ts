@@ -1,6 +1,8 @@
 import fs from 'fs';
-import { moveAsync } from './fsWrap/moveAsync.js';
+import { moveAsync, MoveResult } from './fsWrap/moveAsync.js';
 import { METADATA_SUFFIX } from '../constants.js';
+
+const confirming: Promise<boolean | symbol>[] = [];
 
 /**
  * ファイルを移動する
@@ -13,7 +15,7 @@ export const moveFile = async (
   file: string,
   dirPath: string,
   targetPath: string
-) => {
+): Promise<MoveResult> => {
   const { name = file, ext = '' } =
     file.match(/(?<name>.+)\.(?<ext>.+)$/u)?.groups || {};
   const origin = `${dirPath}/${file}`;
@@ -21,21 +23,23 @@ export const moveFile = async (
     .replaceAll(/%filename%/gi, name)
     .replaceAll(/%ext%/gi, ext);
 
-  const dir = targetPath.replace(/\/[^/]*$/, '');
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-
   let i = 1;
   while (fs.existsSync(`${target}`)) {
     target = target.replace(/(?<ext>\..*)$/iu, ` (${i})$<ext>`);
     i++;
     const { confirm } = await import('@clack/prompts');
-    const res = await confirm({
+    while (confirming.length > 0) {
+      await Promise.race(confirming);
+    }
+    const cfm = confirm({
       message: `${target} already exists. Would you like to rename it to ${target}?`,
     });
+    confirming.push(cfm);
+    const res = await cfm;
+    void confirming.splice(confirming.indexOf(cfm), 1);
     if (!res) {
-      throw new Error('File already exists');
+      //throw new Error('File already exists');
+      return { origin, target, status: 'SKIPPED' };
     }
   }
 
@@ -51,7 +55,7 @@ export const moveFile = async (
   }
 
   // プロキシファイルが存在する場合は同時に移動
-  const proxyPath = `${dirPath.replace(/CLIP/, '')}/SUB/${name}S03.MP4`;
+  const proxyPath = `${dirPath.replace(/CLIP/, '')}SUB/${name}S03.MP4`;
   if (fs.existsSync(proxyPath)) {
     await moveAsync(
       proxyPath,

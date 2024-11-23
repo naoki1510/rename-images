@@ -11,6 +11,7 @@ services:
       - TARGET_FILENAME
       - DEBUG
       - MODE
+      - MAX_PARALLEL
     volumes:
       - type: bind
         source: ${TARGET_DIR}

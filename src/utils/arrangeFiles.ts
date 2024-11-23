@@ -27,6 +27,8 @@ const formatCount = (counter: Counter) => {
   return `[${counter.current.toString().padStart(digits, '0')}/${counter.total}]`;
 };
 
+export const failures: string[] = [];
+
 /**
  * ファイルを整理する
  * @param path 整理するディレクトリのフルパス
@@ -96,9 +98,6 @@ export const arrangeFiles = async (
 
           await Promise.resolve();
           while (counter.tasks.length >= MAX_PARALLEL) {
-            if (IS_DEBUG_MODE) {
-              // console.log(`WAITING: "${fullPath}"`);
-            }
             await Promise.race(counter.tasks);
           }
           counter.current++;
@@ -130,6 +129,7 @@ export const arrangeFiles = async (
       } catch (e) {
         console.error(`FAILED TO ARRANGE "${fullPath}"`);
         console.error(e);
+        failures.push(fullPath);
         // throw e;
       }
 

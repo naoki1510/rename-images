@@ -1,10 +1,12 @@
 import { SOURCE_DIR } from './constants.js';
-import { arrangeFiles } from './utils/arrangeFiles.js';
+import { arrangeFiles, failures } from './utils/arrangeFiles.js';
 
 arrangeFiles(SOURCE_DIR).catch((e) => {
   console.error(e);
   process.exit(1);
 });
+
+console.log(failures);
 
 // 普段使わない
 /**

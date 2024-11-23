@@ -4,6 +4,7 @@ import { getTargetDir } from './getTargetDir.js';
 import { moveFile } from './moveFile.js';
 import { IS_DEBUG_MODE, XML_SUFFIX } from '../constants.js';
 import { XMLParser } from 'fast-xml-parser';
+import { readFileAsync } from './fsWrap/readFileAsync.js';
 
 /**
  * 画像ファイルを整理する
@@ -26,29 +27,33 @@ function getVideoMeta(filePath: string) {
   return new Promise<{ date: Date; model?: string }>((resolve, reject) => {
     const xmlPath = filePath.replace(/\..*$/, XML_SUFFIX);
     if (fs.existsSync(xmlPath) === true) {
-      const xml = fs.readFileSync(xmlPath, {
+      readFileAsync(xmlPath, {
         encoding: 'utf-8',
-      });
-      const parser = new XMLParser({ ignoreAttributes: false });
-      const parsedXml = parser.parse(xml) as {
-        NonRealTimeMeta: {
-          CreationDate: {
-            '@_value': string;
-          };
-          Device: {
-            '@_modelName': string;
+      }).then((xml) => {
+        const parser = new XMLParser({ ignoreAttributes: false });
+        const parsedXml = parser.parse(xml) as {
+          NonRealTimeMeta: {
+            CreationDate: {
+              '@_value': string;
+            };
+            Device: {
+              '@_modelName': string;
+            };
           };
         };
-      };
-      if (IS_DEBUG_MODE) {
-        console.log(parsedXml);
-        console.log(parsedXml.NonRealTimeMeta.CreationDate['@_value']);
-        console.log(parsedXml.NonRealTimeMeta.Device['@_modelName']);
-      }
-      const date = new Date(parsedXml.NonRealTimeMeta.CreationDate['@_value']);
-      const model = parsedXml.NonRealTimeMeta.Device['@_modelName'];
+        if (IS_DEBUG_MODE) {
+          console.log(parsedXml.NonRealTimeMeta.CreationDate['@_value']);
+          console.log(parsedXml.NonRealTimeMeta.Device['@_modelName']);
+        }
+        const date = new Date(
+          parsedXml.NonRealTimeMeta.CreationDate['@_value']
+        );
+        const model = parsedXml.NonRealTimeMeta.Device['@_modelName'];
 
-      resolve({ date, model });
+        resolve({ date, model });
+      }).catch((err: Error) => {
+        reject(err);
+      });
     } else {
       ffmpeg.ffprobe(filePath, (err, metadata) => {
         if (err) {

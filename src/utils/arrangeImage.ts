@@ -20,8 +20,8 @@ export const arrangeImage = async (dirPath: string, file: string) => {
     ) || NaN
   );
 
-  const model = tags['Model']?.description;
-  const lens = tags['LensModel']?.description;
+  const model = tags['Model']?.description.trim();
+  const lens = tags['LensModel']?.description.trim();
 
   const targetDirPath = getTargetDir({
     date,
