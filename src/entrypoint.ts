@@ -3,11 +3,11 @@ import { arrangeFiles, failures } from './utils/arrangeFiles.js';
 
 arrangeFiles(SOURCE_DIR).catch((e) => {
   console.error(e);
+  console.log(failures.join('\n'));
   process.exit(1);
 });
 
-console.log(failures);
-
+console.log(failures.join('\n'));
 // 普段使わない
 /**
  * ディレクトリ構造を変更する
