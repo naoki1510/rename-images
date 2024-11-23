@@ -1,8 +1,8 @@
 // enables debug mode
 export const IS_DEBUG_MODE = process.env.DEBUG === 'true';
 
-export const MODE: 'dry-run' | 'move' =
-  process.env.MODE === 'move' ? 'move' : 'dry-run';
+export const MODE: 'dry-run' | 'move' | 'copy' =
+  process.env.MODE === 'move' ? 'move' : process.env.MODE === 'copy' ? 'copy' : 'dry-run';
 
 // from environment variables
 export const TARGET_DIR = process.env.TARGET_DIR || '/target';
