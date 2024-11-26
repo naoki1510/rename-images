@@ -46,7 +46,7 @@ export async function moveAsync(origin: string, target: string) {
       if (MODE === 'move') {
         fs.rename(origin, target, (err) => {
           if (err) {
-            copy(origin, target);
+            copy(origin, target, true);
           } else {
             console.log(`  RENAME: ${origin} -> ${target}`);
             resolve({ origin, target, status: 'RENAMED' });
