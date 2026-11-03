@@ -20,7 +20,12 @@ export const arrangeMovie = async (dirPath: string, file: string) => {
     model,
   });
 
-  return moveFile(file, dirPath, targetDirPath);
+  const isSameShot = (existing: string) =>
+    getVideoMeta(existing)
+      .then((existingMeta) => existingMeta.date.getTime() === date.getTime())
+      .catch(() => false);
+
+  return moveFile(file, dirPath, targetDirPath, isSameShot);
 };
 
 function getVideoMeta(filePath: string) {

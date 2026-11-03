@@ -29,5 +29,14 @@ export const arrangeImage = async (dirPath: string, file: string) => {
     lens,
   });
 
-  return moveFile(file, dirPath, targetDirPath);
+  const isSameShot = (existing: string) =>
+    getExif(existing)
+      .then(
+        (existingTags) =>
+          dateTag !== undefined &&
+          existingTags['DateTimeOriginal']?.description === dateTag.description
+      )
+      .catch(() => false);
+
+  return moveFile(file, dirPath, targetDirPath, isSameShot);
 };
